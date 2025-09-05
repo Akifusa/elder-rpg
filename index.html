@@ -1,38 +1,60 @@
 <!doctype html>
-<html lang="ja">
-<head>
-<meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>避けゲー PWA</title>
-<link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#0a0f25">
+<title>Elder RPG (prototype)</title>
 <style>
-  html,body{margin:0;height:100%;background:#0a0f25;color:#fff;font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial}
-  #c{width:100vw;height:100vh;display:block;background:#0a0f25;touch-action:none}
+  html,body{margin:0;height:100%}
+  #c{width:100vw;height:100vh;display:block;background:#0a0f25}
+  #ui{position:fixed;left:8px;top:8px;z-index:10}
+  button{padding:.4rem .6rem;border:0;border-radius:.5rem}
 </style>
-</head>
-<body>
 <canvas id="c"></canvas>
+<div id="ui">
+  <button id="avatarBtn">👤 アバター切替</button>
+</div>
 <script>
-// ---- Game ----
-let w=innerWidth,h=innerHeight,c=document.getElementById('c'),x=w/2,y=h-60,r=16,o=[],t=0,s=200,cd=0,ctx=c.getContext('2d');
-function R(){w=innerWidth;h=innerHeight;c.width=w;c.height=h;y=h-60} R(); onresize=R;
-let ix=null; const px=e=>(e.touches&&e.touches[0]?e.touches[0].clientX:e.clientX)||0;
-addEventListener('mousedown',e=>{ix=px(e)}); addEventListener('mousemove',e=>{if(e.buttons)ix=px(e)});
-addEventListener('touchstart',e=>{ix=px(e);e.preventDefault()},{passive:false});
-addEventListener('touchmove',e=>{if(ix!=null)ix=px(e);e.preventDefault()},{passive:false});
-addEventListener('touchend',()=>{ix=null});
-function sp(){let W=20+Math.random()*30,H=12+Math.random()*24;o.push({x:Math.random()*(w-W),y:-H,w:W,h:H,vx:(Math.random()*2-1)*40,vy:s*(1+Math.random()),c:`hsl(${260+80*Math.random()},90%,70%)`})}
-function up(dt){t+=dt;if(ix!=null){x+=(ix-x)*0.3}cd-=dt;let iv=Math.max(.35,.9-t*.01);if(cd<=0){sp();cd=iv}
-o.forEach(a=>{a.x+=a.vx*dt;a.y+=a.vy*dt;if(a.x<0||a.x+a.w>w)a.vx*=-1});o=o.filter(a=>a.y<h+40);x=Math.max(r,Math.min(w-r,x));
-for(let a of o){let cx=Math.max(a.x,Math.min(x,a.x+a.w)),cy=Math.max(a.y,Math.min(y,a.y+a.h)),dx=x-cx,dy=y-cy;if(dx*dx+dy*dy<r*r)return false}return true}
-function dr(sc){ctx.fillStyle='#0a0f25';ctx.fillRect(0,0,w,h);ctx.fillStyle='#22d3ee';ctx.beginPath();ctx.arc(x,y,r,0,6.28);ctx.fill();
-o.forEach(a=>{ctx.fillStyle=a.c;ctx.fillRect(a.x,a.y,a.w,a.h)});ctx.fillStyle='#fff';ctx.font='16px sans-serif';ctx.fillText('Score:'+(sc|0),10,22)}
-let last=performance.now(),score=0,over=false; function loop(now){let dt=Math.min(.033,(now-last)/1000||0); last=now;
-if(!over){ if(up(dt)){score+=dt*10;dr(score)} else { over=true; alert('Game Over\\nScore:'+(score|0)); location.reload() } }
-requestAnimationFrame(loop)} requestAnimationFrame(loop);
-// ---- PWA ----
+const AV_KEY='avatarSimple1';
+function loadAvatar(){ try{ return JSON.parse(localStorage.getItem(AV_KEY))||{hair:'gray',glasses:true}; }catch(e){ return {hair:'gray',glasses:true}; } }
+function saveAvatar(v){ localStorage.setItem(AV_KEY, JSON.stringify(v)); }
+let AV_OPT=loadAvatar();
+
+const c=document.getElementById('c'), ctx=c.getContext('2d');
+let w=innerWidth, h=innerHeight; c.width=w; c.height=h;
+addEventListener('resize', ()=>{ w=innerWidth; h=innerHeight; c.width=w; c.height=h; });
+
+let x=w/2, y=h/2, r=16, vx=0, vy=0;
+
+function drawAvatar(ctx,x,y,opt){
+  ctx.fillStyle='#f2c7a5'; ctx.beginPath(); ctx.arc(x,y-18,12,0,Math.PI*2); ctx.fill(); // face
+  const hair=opt.hair==='black'?'#374151':opt.hair==='brown'?'#8b5e34':'#9ca3af';
+  ctx.fillStyle=hair; ctx.fillRect(x-12,y-28,24,8); ctx.beginPath(); ctx.arc(x,y-24,12,Math.PI,0); ctx.fill();
+  if(opt.glasses){ ctx.strokeStyle='#cbd5e1'; ctx.lineWidth=2; ctx.strokeRect(x-10,y-22,10,8); ctx.strokeRect(x+0,y-22,10,8); }
+  ctx.fillStyle='#22d3ee'; ctx.fillRect(x-12,y-6,24,24); // body
+  ctx.fillStyle='#a3a3a3'; ctx.fillRect(x-10,y+18,8,4); ctx.fillRect(x+2,y+18,8,4); // shoes
+}
+
+const keys={}; addEventListener('keydown',e=>keys[e.key]=true); addEventListener('keyup',e=>keys[e.key]=false);
+
+function loop(){
+  vx=(keys.ArrowRight?160:0)-(keys.ArrowLeft?160:0);
+  vy=(keys.ArrowDown?160:0)-(keys.ArrowUp?160:0);
+  x=Math.max(r,Math.min(w-r,x+vx/60));
+  y=Math.max(r,Math.min(h-r,y+vy/60));
+
+  ctx.fillStyle='#0a0f25'; ctx.fillRect(0,0,w,h);
+  drawAvatar(ctx,x,y,AV_OPT);
+  ctx.fillStyle='#fff'; ctx.font='14px sans-serif'; ctx.fillText('←↑→↓で移動 / 右上でアバター切替',10,20);
+  requestAnimationFrame(loop);
+}
+loop();
+
+document.getElementById('avatarBtn').onclick=()=>{
+  const presets=[{hair:'gray',glasses:true},{hair:'black',glasses:false},{hair:'brown',glasses:true}];
+  let i=Number(localStorage.getItem(AV_KEY+'_i')||0); i=(i+1)%presets.length;
+  AV_OPT=presets[i]; saveAvatar(AV_OPT); localStorage.setItem(AV_KEY+'_i',i);
+  alert('アバターを切り替えました（'+(i+1)+'/'+presets.length+'）');
+};
+
+// PWA
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('./sw.js'); }
 </script>
-</body>
-</html>
+<link rel="manifest" href="manifest.webmanifest">
